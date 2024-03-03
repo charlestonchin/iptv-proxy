@@ -65,6 +65,9 @@ type Stream struct {
 	TVArchive          FlexInt    `json:"tv_archive"`
 	TVArchiveDuration  *FlexInt   `json:"tv_archive_duration"`
 	Type               string     `json:"stream_type"`
+	YoutubeTrailer     string     `json:"trailer"`
+	//TmdbID            FlexInt     `json:"tmdb"`
+	IsAdult			  FlexInt     `json:"is_adult"`
 }
 
 // SeriesInfo contains information about a TV series.
@@ -84,8 +87,9 @@ type SeriesInfo struct {
 	Rating5        FlexFloat        `json:"rating_5based"`
 	ReleaseDate    string           `json:"releaseDate"`
 	SeriesID       FlexInt          `json:"series_id"`
-	StreamType     string           `json:"stream_type"`
+	StreamType     string           `json:"stream_type,omitempty"` // causing the series_info to think it is vod_info.
 	YoutubeTrailer string           `json:"youtube_trailer"`
+	TmdbID         FlexInt          `json:"tmdb"`
 }
 
 type SeriesEpisode struct {
@@ -120,8 +124,10 @@ type Series struct {
 // VideoOnDemandInfo contains information about a video on demand stream.
 type VideoOnDemandInfo struct {
 	Info struct {
-		Audio          FFMPEGStreamInfo `json:"audio"`
+		Audio          FFMPEGStreamInfo `json:"audio,omitempty"`
 		BackdropPath   []string         `json:"backdrop_path"`
+		Name           string         `json:"name"`
+		OName          string         `json:"o_name"`
 		Bitrate        FlexInt          `json:"bitrate"`
 		Cast           string           `json:"cast"`
 		Director       string           `json:"director"`
@@ -133,7 +139,8 @@ type VideoOnDemandInfo struct {
 		Rating         FlexFloat        `json:"rating"`
 		ReleaseDate    string           `json:"releasedate"`
 		TmdbID         FlexInt          `json:"tmdb_id"`
-		Video          FFMPEGStreamInfo `json:"video"`
+		//Video          map[string]interface{} `json:"video"`
+		Video          FFMPEGStreamInfo `json:"video,omitempty"`
 		YoutubeTrailer string           `json:"youtube_trailer"`
 	} `json:"info"`
 	MovieData struct {
@@ -153,8 +160,9 @@ type epgContainer struct {
 
 // EPGInfo describes electronic programming guide information of a stream.
 type EPGInfo struct {
-	ChannelID      string             `json:"channel_id"`
-	Description    Base64Value        `json:"description"`
+	ChannelID string `json:"channel_id"`
+	//Description    Base64Value        `json:"description"`
+	Description    []byte             `json:"description"`
 	End            string             `json:"end"`
 	EPGID          FlexInt            `json:"epg_id,string"`
 	HasArchive     ConvertibleBoolean `json:"has_archive"`
@@ -164,5 +172,6 @@ type EPGInfo struct {
 	Start          string             `json:"start"`
 	StartTimestamp Timestamp          `json:"start_timestamp"`
 	StopTimestamp  Timestamp          `json:"stop_timestamp"`
-	Title          Base64Value        `json:"title"`
+	//Title          Base64Value        `json:"title"`
+	Title []byte `json:"title"`
 }

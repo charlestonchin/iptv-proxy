@@ -84,8 +84,10 @@ var rootCmd = &cobra.Command{
 			HTTPS:                viper.GetBool("https"),
 			M3UFileName:          viper.GetString("m3u-file-name"),
 			CustomEndpoint:       viper.GetString("custom-endpoint"),
-			CustomId:             viper.GetString("custom-id"),
 			XtreamGenerateApiGet: viper.GetBool("xtream-api-get"),
+			M3UExcludeURI:        viper.GetString("m3u-exclude-uri"),
+			M3UExcludeInfo:       viper.GetString("m3u-exclude-info"),
+			M3UExcludeKeyTag:     viper.GetString("m3u-exclude-keytag"),
 		}
 
 		if conf.AdvertisedPort == 0 {
@@ -122,7 +124,6 @@ func init() {
 	rootCmd.Flags().StringP("m3u-url", "u", "", `Iptv m3u file or url e.g: "http://example.com/iptv.m3u"`)
 	rootCmd.Flags().StringP("m3u-file-name", "", "iptv.m3u", `Name of the new proxified m3u file e.g "http://poxy.com/iptv.m3u"`)
 	rootCmd.Flags().StringP("custom-endpoint", "", "", `Custom endpoint "http://poxy.com/<custom-endpoint>/iptv.m3u"`)
-	rootCmd.Flags().StringP("custom-id", "", "", `Custom anti-collison ID for each track "http://proxy.com/<custom-id>/..."`)
 	rootCmd.Flags().Int("port", 8080, "Iptv-proxy listening port")
 	rootCmd.Flags().Int("advertised-port", 0, "Port to expose the IPTV file and xtream (by default, it's taking value from port) useful to put behind a reverse proxy")
 	rootCmd.Flags().String("hostname", "", "Hostname or IP to expose the IPTVs endpoints")
@@ -134,6 +135,9 @@ func init() {
 	rootCmd.Flags().String("xtream-base-url", "", "Xtream-code base url e.g(http://expample.tv:8080)")
 	rootCmd.Flags().Int("m3u-cache-expiration", 1, "M3U cache expiration in hour")
 	rootCmd.Flags().BoolP("xtream-api-get", "", false, "Generate get.php from xtream API instead of get.php original endpoint")
+	rootCmd.Flags().String("m3u-exclude-uri", "", "Exclude matching URL syntax in generating m3u")
+	rootCmd.Flags().String("m3u-exclude-info", "", "Exclude matching EXTINFO syntax in generating m3u")
+	rootCmd.Flags().String("m3u-exclude-keytag", "", "Remove key value in matchinge EXTINFO name m3u")
 
 	if e := viper.BindPFlags(rootCmd.Flags()); e != nil {
 		log.Fatal("error binding PFlags to viper")

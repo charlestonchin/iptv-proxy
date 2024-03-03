@@ -141,50 +141,54 @@ func (c *Config) xtreamGetAuto(ctx *gin.Context) {
 }
 
 func (c *Config) xtreamGet(ctx *gin.Context) {
-	rawURL := fmt.Sprintf("%s/get.php?username=%s&password=%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword)
+		rawURL := fmt.Sprintf("%s/get.php?username=%s&password=%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword)
 
-	q := ctx.Request.URL.Query()
+		q := ctx.Request.URL.Query()
 
-	for k, v := range q {
-		if k == "username" || k == "password" {
-			continue
+		for k, v := range q {
+			if k == "username" || k == "password" {
+				continue
+			}
+
+			rawURL = fmt.Sprintf("%s&%s=%s", rawURL, k, strings.Join(v, ","))
 		}
 
-		rawURL = fmt.Sprintf("%s&%s=%s", rawURL, k, strings.Join(v, ","))
-	}
-
-	m3uURL, err := url.Parse(rawURL)
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
-	}
-
-	xtreamM3uCacheLock.RLock()
-	meta, ok := xtreamM3uCache[m3uURL.String()]
-	d := time.Since(meta.Time)
-	if !ok || d.Hours() >= float64(c.M3UCacheExpiration) {
-		log.Printf("[iptv-proxy] %v | %s | xtream cache m3u file\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
-		xtreamM3uCacheLock.RUnlock()
-		playlist, err := m3u.Parse(m3uURL.String())
+		m3uURL, err := url.Parse(rawURL)
 		if err != nil {
 			ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 			return
 		}
-		if err := c.cacheXtreamM3u(&playlist, m3uURL.String()); err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-			return
+
+		xtreamM3uCacheLock.RLock()
+		meta, ok := xtreamM3uCache[m3uURL.String()]
+		d := time.Since(meta.Time)
+		// log.Printf("cache URL: %s ", m3uURL.String() )
+		// log.Printf("cache check: ", ok , d.Hours() , float64(c.M3UCacheExpiration) )
+		if !ok || d.Hours() >= float64(c.M3UCacheExpiration) {
+			log.Printf("[iptv-proxy] %v | %s | xtream creating new cache m3u file\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
+			xtreamM3uCacheLock.RUnlock()
+			playlist, err := m3u.Parse(m3uURL.String())
+			if err != nil {
+				ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+				return
+			}
+			if err := c.cacheXtreamM3u(&playlist, m3uURL.String()); err != nil {
+				ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+				return
+			}
+		} else {
+			log.Printf("[iptv-proxy] %v | %s | xtream using cache m3u file\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
+			xtreamM3uCacheLock.RUnlock()
 		}
-	} else {
+
+		ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
+		xtreamM3uCacheLock.RLock()
+		path := xtreamM3uCache[m3uURL.String()].string
 		xtreamM3uCacheLock.RUnlock()
-	}
+		ctx.Header("Content-Type", "application/octet-stream")
 
-	ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
-	xtreamM3uCacheLock.RLock()
-	path := xtreamM3uCache[m3uURL.String()].string
-	xtreamM3uCacheLock.RUnlock()
-	ctx.Header("Content-Type", "application/octet-stream")
+		ctx.File(path)
 
-	ctx.File(path)
 }
 
 func (c *Config) xtreamApiGet(ctx *gin.Context) {
@@ -201,7 +205,7 @@ func (c *Config) xtreamApiGet(ctx *gin.Context) {
 	meta, ok := xtreamM3uCache[cacheName]
 	d := time.Since(meta.Time)
 	if !ok || d.Hours() >= float64(c.M3UCacheExpiration) {
-		log.Printf("[iptv-proxy] %v | %s | xtream cache API m3u file\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
+		log.Printf("[iptv-proxy] %v | %s | xtream create cache API m3u file\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
 		xtreamM3uCacheLock.RUnlock()
 		playlist, err := c.xtreamGenerateM3u(ctx, extension)
 		if err != nil {
@@ -267,6 +271,7 @@ func (c *Config) xtreamPlayerAPI(ctx *gin.Context, q url.Values) {
 	log.Printf("[iptv-proxy] %v | %s |Action\t%s\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP(), action)
 
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamPlayerAPI:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -283,6 +288,7 @@ func (c *Config) xtreamXMLTV(ctx *gin.Context) {
 
 	resp, err := client.GetXMLTV()
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamXMLTV:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -294,6 +300,7 @@ func (c *Config) xtreamStreamHandler(ctx *gin.Context) {
 	id := ctx.Param("id")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamHandler:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -305,6 +312,7 @@ func (c *Config) xtreamStreamLive(ctx *gin.Context) {
 	id := ctx.Param("id")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/live/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamLive:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -317,6 +325,7 @@ func (c *Config) xtreamStreamPlay(ctx *gin.Context) {
 	t := ctx.Param("type")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/play/%s/%s", c.XtreamBaseURL, token, t))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamPlay:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -330,6 +339,7 @@ func (c *Config) xtreamStreamTimeshift(ctx *gin.Context) {
 	id := ctx.Param("id")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/timeshift/%s/%s/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, duration, start, id))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamTimeshift:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -341,6 +351,7 @@ func (c *Config) xtreamStreamMovie(ctx *gin.Context) {
 	id := ctx.Param("id")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/movie/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamMovie:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -352,6 +363,7 @@ func (c *Config) xtreamStreamSeries(ctx *gin.Context) {
 	id := ctx.Param("id")
 	rpURL, err := url.Parse(fmt.Sprintf("%s/series/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamStreamSeries:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -388,6 +400,7 @@ func (c *Config) xtreamHlsStream(ctx *gin.Context) {
 	)
 
 	if err != nil {
+		log.Printf("[iptv-proxy] xtreamHlsStream:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -400,6 +413,7 @@ func (c *Config) xtreamHlsrStream(ctx *gin.Context) {
 
 	url, err := getHlsRedirectURL(channel)
 	if err != nil {
+		log.Printf("[iptv-proxy] getHlsRedirectURL:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
@@ -447,6 +461,7 @@ func (c *Config) hlsXtreamStream(ctx *gin.Context, oriURL *url.URL) {
 
 	req, err := http.NewRequest("GET", oriURL.String(), nil)
 	if err != nil {
+		log.Printf("[iptv-proxy] hlsXtreamStream:\t%s", err)
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}

@@ -64,10 +64,6 @@ func NewServer(config *config.ProxyConfig) (*Config, error) {
 		}
 	}
 
-        if trimmedCustomId := strings.Trim(config.CustomId, "/"); trimmedCustomId != "" {
-                endpointAntiColision = trimmedCustomId
-        }
-
 	return &Config{
 		config,
 		&p,
@@ -110,9 +106,14 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 	filteredTrack := make([]m3u.Track, 0, len(c.playlist.Tracks))
 
 	ret := 0
+	excludeURISyntax := strings.Split(c.M3UExcludeURI, ",")
+	excludeInfoSyntax := strings.Split(c.M3UExcludeInfo, ",")
+	excludeKeyValue := strings.Split(c.M3UExcludeKeyTag, ",")
+	excludeMatch := false
 	into.WriteString("#EXTM3U\n") // nolint: errcheck
 	for i, track := range c.playlist.Tracks {
 		var buffer bytes.Buffer
+		excludeMatch = false
 
 		buffer.WriteString("#EXTINF:")                       // nolint: errcheck
 		buffer.WriteString(fmt.Sprintf("%d ", track.Length)) // nolint: errcheck
@@ -123,20 +124,57 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			}
 			buffer.WriteString(fmt.Sprintf("%s=%q ", track.Tags[i].Name, track.Tags[i].Value)) // nolint: errcheck
 		}
+        //log.Printf("marshallInto() Before URL: %s", track.URI)
+		//log.Printf("marshallInto() Before TAG: %s", track.Tags)
+
+		// log.Printf("testcc M3UExcludeNAME: %s", c.M3UExcludeNAME )
+		// log.Printf("testcc M3UExcludeURI: %s", c.M3UExcludeURI )
+		for _, matchingInfo := range excludeInfoSyntax {
+			if strings.Contains(track.Name, matchingInfo) { 
+				excludeMatch = true
+				break 
+			} 
+		}
+		if excludeMatch {
+			ret++
+			continue
+		}
+		for _, matchingURI := range excludeURISyntax {
+			if strings.Contains(track.URI, matchingURI ) { 
+				excludeMatch = true
+				break
+			} 
+		}
+		if excludeMatch {
+			ret++
+			continue
+		}
 
 		uri, err := c.replaceURL(track.URI, i-ret, xtream)
 		if err != nil {
 			ret++
-			log.Printf("ERROR: track: %s: %s", track.Name, err)
+			log.Printf("ERROR: c.replaceURL() : %s: %s", track.Name, err)
 			continue
 		}
-
+		//log.Printf("marshallInto() After URL: %s", uri)
+		//log.Printf("marshallInto() WriteString URL: %s", fmt.Sprintf("%s, %s\n%s\n", buffer.String(), track.Name, uri) )
 		into.WriteString(fmt.Sprintf("%s, %s\n%s\n", buffer.String(), track.Name, uri)) // nolint: errcheck
-
+		for  index, t := range track.Tags {
+			for _, matchingKeyValue := range excludeKeyValue {
+				if strings.Contains(t.Name, matchingKeyValue){
+					// log.Printf("marshallInto() TVG: %s", t.Name)
+					track.Tags = append(track.Tags[:index], track.Tags[index+1:]...)
+					break
+				}
+			}
+			
+			
+		}
 		filteredTrack = append(filteredTrack, track)
+		//log.Printf("marshallInto() After TAG: %s", track.Tags)
 	}
 	c.playlist.Tracks = filteredTrack
-
+	
 	return into.Sync()
 }
 
@@ -179,7 +217,7 @@ func (c *Config) replaceURL(uri string, trackIndex int, xtream bool) (string, er
 		customEnd,
 		uriPath,
 	)
-
+    // log.Printf("generate server URL: %s", newURI )
 	newURL, err := url.Parse(newURI)
 	if err != nil {
 		return "", err

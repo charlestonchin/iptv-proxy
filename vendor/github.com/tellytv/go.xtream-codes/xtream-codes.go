@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"log"
 )
 
 var defaultUserAgent = "go.xstream-codes (Go-http-client/1.1)"
@@ -242,6 +243,15 @@ func (c *XtreamClient) GetSeriesInfo(seriesID string) (*Series, error) {
 	return seriesInfo, jsonErr
 }
 
+func (i *FFMPEGStreamInfo) UnmarshalJSON(data []byte) error {
+    if string(data) == `[]` {
+        return nil
+    }
+
+    type tmp FFMPEGStreamInfo
+    return json.Unmarshal(data, (*tmp)(i))
+}
+
 // GetVideoOnDemandInfo will return VOD info for the given vodID.
 func (c *XtreamClient) GetVideoOnDemandInfo(vodID string) (*VideoOnDemandInfo, error) {
 	if vodID == "" {
@@ -254,9 +264,11 @@ func (c *XtreamClient) GetVideoOnDemandInfo(vodID string) (*VideoOnDemandInfo, e
 	}
 
 	vodInfo := &VideoOnDemandInfo{}
-
+	// log.Printf("[iptv-proxy] GetVideoOnDemandInfo DEBUG: %s ", vodData )
 	jsonErr := json.Unmarshal(vodData, &vodInfo)
-
+	// if jsonErr != nil {
+	// 	log.Printf("[iptv-proxy] GetVideoOnDemandInfo Unmarshal Error: %s ", jsonErr)
+	// }
 	return vodInfo, jsonErr
 }
 
@@ -308,7 +320,8 @@ func (c *XtreamClient) sendRequest(action string, parameters url.Values) ([]byte
 		file = action
 	}
 	url := fmt.Sprintf("%s/%s?username=%s&password=%s", c.BaseURL, file, c.Username, c.Password)
-	if action != "" {
+	// log.Printf("[iptv-proxy] sendRequest URL: %s ", url)
+	if action != "" && action != "xmltv.php" {
 		url = fmt.Sprintf("%s&action=%s", url, action)
 	}
 	if parameters != nil {

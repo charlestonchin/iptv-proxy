@@ -46,7 +46,7 @@ func (c *Config) reverseProxy(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
-
+    // log.Printf("reverseProxy URL: %s", rpURL.String() )
 	c.stream(ctx, rpURL)
 }
 
@@ -58,13 +58,13 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
-
+    // log.Printf("m3u8ReverseProxy URL: %s",rpURL.String() )
 	c.stream(ctx, rpURL)
 }
 
 func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
 	client := &http.Client{}
-
+    // log.Printf("stream URL: %s", oriURL.String() )
 	req, err := http.NewRequest("GET", oriURL.String(), nil)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck

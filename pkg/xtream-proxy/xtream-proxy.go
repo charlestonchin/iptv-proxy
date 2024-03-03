@@ -24,7 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
+	"strings"
+	"log"
 	"github.com/pierre-emmanuelJ/iptv-proxy/pkg/config"
 	xtream "github.com/tellytv/go.xtream-codes"
 )
@@ -37,7 +38,7 @@ const (
 	getVodInfo          = "get_vod_info"
 	getSeriesCategories = "get_series_categories"
 	getSeries           = "get_series"
-	getSerieInfo        = "get_series_info"
+	getSeriesInfo       = "get_series_info"
 	getShortEPG         = "get_short_epg"
 	getSimpleDataTable  = "get_simple_data_table"
 )
@@ -79,8 +80,9 @@ func (c *Client) login(proxyUser, proxyPassword, proxyURL string, proxyPort int,
 			AllowedOutputFormats: c.UserInfo.AllowedOutputFormats,
 		},
 		ServerInfo: xtream.ServerInfo{
-			URL:          proxyURL,
+			URL:          strings.Trim(proxyURL, "http://"),
 			Port:         xtream.FlexInt(proxyPort),
+			Process:      c.ServerInfo.Process,
 			HTTPSPort:    xtream.FlexInt(proxyPort),
 			Protocol:     protocol,
 			RTMPPort:     xtream.FlexInt(proxyPort),
@@ -117,9 +119,13 @@ func (c *Client) Action(config *config.ProxyConfig, action string, q url.Values)
 			categoryID = q["category_id"][0]
 		}
 		respBody, err = c.GetVideoOnDemandStreams(categoryID)
+		if err != nil {
+			log.Printf("getVodStreams: %s", err)
+		}
 	case getVodInfo:
 		httpcode, err = validateParams(q, "vod_id")
 		if err != nil {
+			log.Printf("getVodInfo: %s", err)
 			return
 		}
 		respBody, err = c.GetVideoOnDemandInfo(q["vod_id"][0])
@@ -131,9 +137,13 @@ func (c *Client) Action(config *config.ProxyConfig, action string, q url.Values)
 			categoryID = q["category_id"][0]
 		}
 		respBody, err = c.GetSeries(categoryID)
-	case getSerieInfo:
+		if err != nil {
+			log.Printf("getSeries: %s", err)
+		}
+	case getSeriesInfo:
 		httpcode, err = validateParams(q, "series_id")
 		if err != nil {
+			log.Printf("getSeriesInfo: %s", err)
 			return
 		}
 		respBody, err = c.GetSeriesInfo(q["series_id"][0])
@@ -142,24 +152,36 @@ func (c *Client) Action(config *config.ProxyConfig, action string, q url.Values)
 
 		httpcode, err = validateParams(q, "stream_id")
 		if err != nil {
+			log.Printf("getShortEPG: %s", err)
 			return
 		}
 		if len(q["limit"]) > 0 {
 			limit, err = strconv.Atoi(q["limit"][0])
 			if err != nil {
+				log.Printf("getShortEPG len: %s", err)
 				httpcode = http.StatusInternalServerError
 				return
 			}
 		}
 		respBody, err = c.GetShortEPG(q["stream_id"][0], limit)
+		if err != nil {
+			log.Printf("getShortEPG response: %s", err)
+		}
 	case getSimpleDataTable:
 		httpcode, err = validateParams(q, "stream_id")
 		if err != nil {
+			log.Printf("validate getSimpleDataTable: %s", err)
 			return
 		}
 		respBody, err = c.GetEPG(q["stream_id"][0])
+		if err != nil {
+			log.Printf("getSimpleDataTable: %s", err)
+		}
 	default:
 		respBody, err = c.login(config.User.String(), config.Password.String(), protocol+"://"+config.HostConfig.Hostname, config.AdvertisedPort, protocol)
+		if err != nil {
+			log.Printf("default case: %s", err)
+		}
 	}
 
 	return
