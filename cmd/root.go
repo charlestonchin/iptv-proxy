@@ -88,6 +88,7 @@ var rootCmd = &cobra.Command{
 			M3UExcludeURI:        viper.GetString("m3u-exclude-uri"),
 			M3UExcludeInfo:       viper.GetString("m3u-exclude-info"),
 			M3UExcludeKeyTag:     viper.GetString("m3u-exclude-keytag"),
+			CustomId:             viper.GetString("custom-id"),
 		}
 
 		if conf.AdvertisedPort == 0 {
@@ -135,9 +136,10 @@ func init() {
 	rootCmd.Flags().String("xtream-base-url", "", "Xtream-code base url e.g(http://expample.tv:8080)")
 	rootCmd.Flags().Int("m3u-cache-expiration", 1, "M3U cache expiration in hour")
 	rootCmd.Flags().BoolP("xtream-api-get", "", false, "Generate get.php from xtream API instead of get.php original endpoint")
-	rootCmd.Flags().String("m3u-exclude-uri", "", "Exclude matching URL syntax in generating m3u")
-	rootCmd.Flags().String("m3u-exclude-info", "", "Exclude matching EXTINFO syntax in generating m3u")
-	rootCmd.Flags().String("m3u-exclude-keytag", "", "Remove key value in matchinge EXTINFO name m3u")
+	rootCmd.Flags().String("m3u-exclude-uri", "%%", "Exclude matching URL syntax in generating m3u")
+	rootCmd.Flags().String("m3u-exclude-info", "%%", "Exclude matching EXTINFO syntax in generating m3u")
+	rootCmd.Flags().String("m3u-exclude-keytag", "%%", "Remove key value in matchinge EXTINFO name m3u")
+	rootCmd.Flags().StringP("custom-id", "", "", `Custom anti-collison ID for each track "http://proxy.com/<custom-id>/..."`)
 
 	if e := viper.BindPFlags(rootCmd.Flags()); e != nil {
 		log.Fatal("error binding PFlags to viper")

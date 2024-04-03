@@ -40,6 +40,7 @@ func NewClient(username, password, baseURL string) (*XtreamClient, error) {
 	if parseURLErr != nil {
 		return nil, fmt.Errorf("error parsing url: %s", parseURLErr.Error())
 	}
+	
 
 	client := &XtreamClient{
 		Username:  username,
@@ -178,20 +179,22 @@ func (c *XtreamClient) GetStreams(streamAction, categoryID string) ([]Stream, er
 		params = url.Values{}
 		params.Add("category_id", categoryID)
 	}
-
+	// log.Printf("GetStreams, categoryID:%s", categoryID)
 	// For whatever reason, unlike live and vod, series streams action doesn't have "_streams".
 	if streamAction != "series" {
 		streamAction = fmt.Sprintf("%s_streams", streamAction)
 	}
-
+	// log.Printf("GetStreams, streamAction:%s", streamAction)
 	streamData, streamErr := c.sendRequest(fmt.Sprintf("get_%s", streamAction), params)
 	if streamErr != nil {
+		log.Printf("GetStreams, streamData Error:%s", streamErr)
 		return nil, streamErr
 	}
 
 	streams := make([]Stream, 0)
 
 	if jsonErr := json.Unmarshal(streamData, &streams); jsonErr != nil {
+		log.Printf("GetStreams, Unmarshal Error:%s", jsonErr)
 		return nil, jsonErr
 	}
 

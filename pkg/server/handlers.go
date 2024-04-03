@@ -63,7 +63,9 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 }
 
 func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
     // log.Printf("stream URL: %s", oriURL.String() )
 	req, err := http.NewRequest("GET", oriURL.String(), nil)
 	if err != nil {

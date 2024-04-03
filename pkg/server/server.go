@@ -63,7 +63,9 @@ func NewServer(config *config.ProxyConfig) (*Config, error) {
 			return nil, err
 		}
 	}
-
+	if trimmedCustomId := strings.Trim(config.CustomId, "/"); trimmedCustomId != "" {
+		endpointAntiColision = trimmedCustomId
+	}
 	return &Config{
 		config,
 		&p,
@@ -110,11 +112,11 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 	excludeInfoSyntax := strings.Split(c.M3UExcludeInfo, ",")
 	excludeKeyValue := strings.Split(c.M3UExcludeKeyTag, ",")
 	excludeMatch := false
+
 	into.WriteString("#EXTM3U\n") // nolint: errcheck
 	for i, track := range c.playlist.Tracks {
 		var buffer bytes.Buffer
 		excludeMatch = false
-
 		buffer.WriteString("#EXTINF:")                       // nolint: errcheck
 		buffer.WriteString(fmt.Sprintf("%d ", track.Length)) // nolint: errcheck
 		for i := range track.Tags {
@@ -124,14 +126,30 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			}
 			buffer.WriteString(fmt.Sprintf("%s=%q ", track.Tags[i].Name, track.Tags[i].Value)) // nolint: errcheck
 		}
-        //log.Printf("marshallInto() Before URL: %s", track.URI)
+        // log.Printf("marshallInto() Before URL: %s", track.URI)
 		//log.Printf("marshallInto() Before TAG: %s", track.Tags)
 
 		// log.Printf("testcc M3UExcludeNAME: %s", c.M3UExcludeNAME )
 		// log.Printf("testcc M3UExcludeURI: %s", c.M3UExcludeURI )
+		//log.Printf("testcc M3UIncludeURI: %s", c.M3UIncludeURI )
+		// if len(includeURISyntax) > 1 {
+		// 	for _, addurl := range includeURISyntax {
+		// 		if strings.Contains(track.URI, addurl) { 
+		// 			log.Printf("testcc M3UIncludeeURI: %s", addurl )
+		// 			notincludeMatch = true
+		// 			break 
+		// 		}
+		// 	}
+		// 	if !notincludeMatch {
+		// 		ret++
+		// 		continue
+		// 	}
+		// }
+
 		for _, matchingInfo := range excludeInfoSyntax {
 			if strings.Contains(track.Name, matchingInfo) { 
 				excludeMatch = true
+				// log.Printf("excludeInfoSyntax match!")
 				break 
 			} 
 		}
@@ -142,6 +160,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 		for _, matchingURI := range excludeURISyntax {
 			if strings.Contains(track.URI, matchingURI ) { 
 				excludeMatch = true
+				// log.Printf("excludeURISyntax match!")
 				break
 			} 
 		}
@@ -149,7 +168,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			ret++
 			continue
 		}
-
+		//log.Printf("marshallInto() Before URL: %s", track.URI)
 		uri, err := c.replaceURL(track.URI, i-ret, xtream)
 		if err != nil {
 			ret++
@@ -200,7 +219,14 @@ func (c *Config) replaceURL(uri string, trackIndex int, xtream bool) (string, er
 		uriPath = strings.ReplaceAll(uriPath, c.XtreamUser.PathEscape(), c.User.PathEscape())
 		uriPath = strings.ReplaceAll(uriPath, c.XtreamPassword.PathEscape(), c.Password.PathEscape())
 	} else {
-		uriPath = path.Join("/", c.endpointAntiColision, c.User.PathEscape(), c.Password.PathEscape(), fmt.Sprintf("%d", trackIndex), path.Base(uriPath))
+		// if strings.Contains(uri, "/series/"){
+		// 	streamType = "series"
+		// } else if strings.Contains(uri, "/movie/") {
+		// 	streamType = "movie"
+		// } else {
+		// 	streamType = "live"
+		// }
+		uriPath = path.Join("/",  c.endpointAntiColision ,c.User.PathEscape(), c.Password.PathEscape(), fmt.Sprintf("%d", trackIndex), path.Base(uriPath))
 	}
 
 	basicAuth := oriURL.User.String()
